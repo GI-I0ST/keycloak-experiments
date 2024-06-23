@@ -1,0 +1,19 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak-oidc:
+            provider: keycloak
+            client-name: Keycloak
+            client-id: keycloak-experiments-app-pkce
+            client-secret: HvwRxNNd4aAZ2LnuBRyqFOUcVhHZzCNZ
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - email
+              - profile
+              - keycloak-experimetns
+        provider:
+          keycloak:
+            issuer-uri: http://localhost:8083/realms/my-test-realm
