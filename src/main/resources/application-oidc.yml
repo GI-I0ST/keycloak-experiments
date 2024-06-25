@@ -7,7 +7,7 @@ spring:
             provider: keycloak
             client-name: Keycloak
             client-id: keycloak-experiments-app
-            client-secret: bJqDNJTeuxCFdkUYRMXLw0IPbWblYWEM
+            client-secret: jsVmxWrOHY73A354nvxwFyG7CKGNHJK0
             authorization-grant-type: authorization_code
             scope:
               - openid

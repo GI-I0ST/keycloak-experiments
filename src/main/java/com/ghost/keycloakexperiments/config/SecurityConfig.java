@@ -4,17 +4,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -33,7 +40,9 @@ public class SecurityConfig {
                         .requestMatchers("/login").permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(Customizer.withDefaults())
+                .oauth2Login(auth -> auth
+                        .userInfoEndpoint(cfg -> cfg.userAuthoritiesMapper(userAuthoritiesMapperForKeycloak()))
+                )
                 .logout(logout -> logout
                         .logoutSuccessHandler(oidcLogoutSuccessHandler())
                 );
@@ -50,8 +59,8 @@ public class SecurityConfig {
                         .requestMatchers("/login").permitAll()
                         .anyRequest().authenticated()
                 )
-                .oauth2Login(auth -> auth.
-                        authorizationEndpoint(cfg -> cfg.authorizationRequestResolver(pkceResolver(clientRegistrationRepository)))
+                .oauth2Login(auth -> auth
+                        .authorizationEndpoint(cfg -> cfg.authorizationRequestResolver(pkceResolver(clientRegistrationRepository)))
                 )
                 .logout(logout -> logout
                         .logoutSuccessHandler(oidcLogoutSuccessHandler())
@@ -60,13 +69,15 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private OAuth2AuthorizationRequestResolver pkceResolver(ClientRegistrationRepository repo) {
+    @Bean
+    public OAuth2AuthorizationRequestResolver pkceResolver(ClientRegistrationRepository repo) {
         var resolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
         resolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
         return resolver;
     }
 
-    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
+    @Bean
+    public LogoutSuccessHandler oidcLogoutSuccessHandler() {
         OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
                 new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
 
@@ -75,5 +86,27 @@ public class SecurityConfig {
         oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}/login");
 
         return oidcLogoutSuccessHandler;
+    }
+
+    @Bean
+    public GrantedAuthoritiesMapper userAuthoritiesMapperForKeycloak() {
+        return authorities -> {
+            Set<GrantedAuthority> mappedAuthorities = new HashSet<>();
+            authorities.forEach(authority -> {
+                if (authority instanceof OidcUserAuthority oidcUserAuthority) {
+                    var userInfo = oidcUserAuthority.getUserInfo();
+
+                    if (userInfo.hasClaim("roles")) {
+                        mappedAuthorities.addAll(userInfo.getClaimAsStringList("roles")
+                                                         .stream()
+                                                         .filter(str -> str.startsWith("ROLE_"))
+                                                         .map(SimpleGrantedAuthority::new)
+                                                         .collect(Collectors.toSet()));
+                    }
+                }
+            });
+
+            return mappedAuthorities;
+        };
     }
 }

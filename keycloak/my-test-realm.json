@@ -724,7 +724,7 @@
       "frontchannelLogout": true,
       "protocol": "openid-connect",
       "attributes": {
-        "client.secret.creation.time": "1719160091",
+        "client.secret.creation.time": "1719305919",
         "client.introspection.response.allow.jwt.claim.enabled": "false",
         "post.logout.redirect.uris": "http://localhost:8080/login",
         "oauth2.device.authorization.grant.enabled": "false",
