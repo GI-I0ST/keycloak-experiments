@@ -13,7 +13,6 @@ spring:
               - openid
               - email
               - profile
-              - keycloak-experimetns
         provider:
           keycloak:
             issuer-uri: http://localhost:8083/realms/my-test-realm
