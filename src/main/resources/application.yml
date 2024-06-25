@@ -10,4 +10,4 @@ spring:
   application:
     name: keycloak-experiments
   profiles:
-    active: pkce
+    active: oidc
