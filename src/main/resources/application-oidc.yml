@@ -13,6 +13,24 @@ spring:
               - openid
               - email
               - profile
+
+          github-oidc:
+            provider: github
+            client-name: GitHub
+            client-id: ${GITHUB_OIDC_CLIENT_ID}
+            client-secret: ${GITHUB_OIDC_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: http://localhost:8080/login/oauth2/code/github-oidc
+            scope:
+              - read:user
+              - user:email
+
         provider:
           keycloak:
             issuer-uri: http://localhost:8083/realms/my-test-realm
+
+          github:
+            authorization-uri: https://github.com/login/oauth/authorize
+            token-uri: https://github.com/login/oauth/access_token
+            user-info-uri: https://api.github.com/user
+            user-name-attribute: login

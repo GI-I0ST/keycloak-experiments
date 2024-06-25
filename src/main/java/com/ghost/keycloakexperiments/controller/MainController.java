@@ -16,9 +16,20 @@ public class MainController {
         return authorizedClient;
     }
 
+    @GetMapping("/authentication")
+    public Authentication publicAuthentication() {
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
+
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @GetMapping("admin/home")
-    public Authentication adminHome() {
+    @GetMapping("admin/authentication")
+    public Authentication adminAuthentication() {
+        return SecurityContextHolder.getContext().getAuthentication();
+    }
+
+    @PreAuthorize("hasRole('ROLE_SOCIAL')")
+    @GetMapping("social/authentication")
+    public Authentication socialAuthentication() {
         return SecurityContextHolder.getContext().getAuthentication();
     }
 
