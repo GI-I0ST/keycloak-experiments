@@ -18,14 +18,14 @@ services:
       KC_HEALTH_ENABLED: true
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-    command: start-dev
+    entrypoint: /opt/keycloak/bin/kc.sh start-dev --import-realm
     depends_on:
       - keycloak_db
     ports:
       - 8083:8080
     volumes:
-      - ./master-realm.json:/opt/keycloak/data/import/master.json:z
-      - ./my-test-realm.json:/opt/keycloak/data/import/my-test-realm.json:z
+      - ./keycloak/master-realm.json:/opt/keycloak/data/import/master.json:z
+      - ./keycloak/my-test-realm.json:/opt/keycloak/data/import/my-test-realm.json:z
 
   keycloak_db:
     container_name: keycloak_db
@@ -37,7 +37,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./keycloak/postgres_data:/var/lib/postgresql/data
 
 volumes:
   postgres_data:
