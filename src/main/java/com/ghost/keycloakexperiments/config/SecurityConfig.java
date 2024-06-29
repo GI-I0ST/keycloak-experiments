@@ -10,25 +10,36 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
-import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private static final List<String> SOCIAL_PROVIDERS = List.of("google", "facebook", "gitlab", "github");
+    private static final String AUTHORITY_CLAIM = "roles";
 
     private final ClientRegistrationRepository clientRegistrationRepository;
 
@@ -43,7 +54,10 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .oauth2Login(auth -> auth
-                        .userInfoEndpoint(cfg -> cfg.userAuthoritiesMapper(userAuthoritiesMapperForKeycloak()))
+                        .userInfoEndpoint(epConfig -> epConfig
+                                .userService(userService())
+                                .oidcUserService(oidcUserService())
+                        )
                 )
                 .logout(logout -> logout
                         .logoutSuccessHandler(oidcLogoutSuccessHandler())
@@ -91,24 +105,70 @@ public class SecurityConfig {
     }
 
     @Bean
-    public GrantedAuthoritiesMapper userAuthoritiesMapperForKeycloak() {
-        return authorities -> {
+    public OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
+
+        final OidcUserService delegate = new OidcUserService();
+        return userRequest -> {
+            // Delegate to the default implementation for loading a user
+            OidcUser oidcUser = delegate.loadUser(userRequest);
+
+            //OAuth2AccessToken accessToken = userRequest.getAccessToken();
             Set<GrantedAuthority> mappedAuthorities = new HashSet<>();
-            authorities.forEach(authority -> {
-                if (authority instanceof OidcUserAuthority oidcUserAuthority) {
-                    var userInfo = oidcUserAuthority.getUserInfo();
 
-                    if (userInfo.hasClaim("roles")) {
-                        mappedAuthorities.addAll(userInfo.getClaimAsStringList("roles")
-                                                         .stream()
-                                                         .filter(str -> str.startsWith("ROLE_"))
-                                                         .map(SimpleGrantedAuthority::new)
-                                                         .collect(Collectors.toSet()));
-                    }
-                }
-            });
+            // Handle different clients
+            ClientRegistration cliReg = userRequest.getClientRegistration();
+            if (isSocial(cliReg.getClientName())) {
+                mappedAuthorities.add(new SimpleGrantedAuthority("ROLE_SOCIAL"));
+            }
+            else {
+                List<SimpleGrantedAuthority> roles = oidcUser.getIdToken().getClaimAsStringList(AUTHORITY_CLAIM)
+                        .stream()
+                        .filter(role -> role.startsWith("ROLE_"))
+                        .map(SimpleGrantedAuthority::new)
+                        .toList();
 
-            return mappedAuthorities;
+                mappedAuthorities.addAll(roles);
+            }
+
+            return new DefaultOidcUser(mappedAuthorities, oidcUser.getIdToken(), oidcUser.getUserInfo());
         };
+    }
+
+    @Bean
+    public OAuth2UserService<OAuth2UserRequest, OAuth2User> userService() {
+
+        final OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
+        return userRequest -> {
+            // Delegate to the default implementation for loading a user
+            OAuth2User oAuth2User = delegate.loadUser(userRequest);
+
+            Set<GrantedAuthority> mappedAuthorities = new HashSet<>();
+
+            // Handle different clients
+            ClientRegistration cliReg = userRequest.getClientRegistration();
+            if (isSocial(cliReg.getClientName())) {
+                mappedAuthorities.add(new SimpleGrantedAuthority("ROLE_SOCIAL"));
+            } else {
+                if (oAuth2User.getAttributes().containsKey(AUTHORITY_CLAIM)) {
+                    List<SimpleGrantedAuthority> roles = ((List<String>) oAuth2User.getAttribute(AUTHORITY_CLAIM))
+                            .stream()
+                            .filter(role -> role.startsWith("ROLE_"))
+                            .map(SimpleGrantedAuthority::new)
+                            .toList();
+
+                    mappedAuthorities.addAll(roles);
+                }
+            }
+
+            String userNameAttribute = cliReg.getProviderDetails()
+                    .getUserInfoEndpoint()
+                    .getUserNameAttributeName();
+
+            return new DefaultOAuth2User(mappedAuthorities, oAuth2User.getAttributes(), userNameAttribute);
+        };
+    }
+
+    private boolean isSocial(String clientName) {
+        return (SOCIAL_PROVIDERS.contains(clientName.toLowerCase()));
     }
 }
