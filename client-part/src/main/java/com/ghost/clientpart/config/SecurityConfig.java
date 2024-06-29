@@ -1,4 +1,4 @@
-package com.ghost.keycloakexperiments.config;
+package com.ghost.clientpart.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -112,9 +112,7 @@ public class SecurityConfig {
             // Delegate to the default implementation for loading a user
             OidcUser oidcUser = delegate.loadUser(userRequest);
 
-            //OAuth2AccessToken accessToken = userRequest.getAccessToken();
             Set<GrantedAuthority> mappedAuthorities = new HashSet<>();
-
             // Handle different clients
             ClientRegistration cliReg = userRequest.getClientRegistration();
             if (isSocial(cliReg.getClientName())) {

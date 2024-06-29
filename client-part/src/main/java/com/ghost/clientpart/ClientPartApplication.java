@@ -1,4 +1,4 @@
-package com.ghost.keycloakexperiments;
+package com.ghost.clientpart;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

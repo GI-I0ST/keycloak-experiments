@@ -4,7 +4,7 @@ management:
 
 logging:
   level:
-    root: trace
+    root: info
 
 spring:
   application:

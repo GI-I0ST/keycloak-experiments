@@ -1,5 +1,8 @@
-package com.ghost.keycloakexperiments.controller;
+package com.ghost.clientpart.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.ghost.clientpart.service.ResourceServerService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -9,7 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequiredArgsConstructor
 public class MainController {
+    private final ResourceServerService resourceServerService;
 
     @GetMapping("/home")
     public OAuth2AuthorizedClient home(@RegisteredOAuth2AuthorizedClient OAuth2AuthorizedClient authorizedClient) {
@@ -33,4 +38,8 @@ public class MainController {
         return SecurityContextHolder.getContext().getAuthentication();
     }
 
+    @GetMapping("/resource")
+    public JsonNode callResourceServer() {
+        return resourceServerService.callResourceServer();
+    }
 }
